@@ -1,0 +1,11 @@
+target/
+.git/
+.idea/
+.vscode/
+*.iml
+.env
+.env.*
+*.log
+HELP.md
+README.md
+node_modules/
