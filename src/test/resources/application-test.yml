@@ -1,0 +1,18 @@
+app:
+  jwt:
+    secret: dGVzdC1zZWNyZXQtdmVyeS1sb25nLWtleS1mb3ItaG1hYy1zaGE1MTItYWxnby1taW4tNjQtYnl0ZXMtcmVxdWlyZWQtZm9yLWp3dC1zaWdu
+    access-expiration-ms: 900000
+    refresh-expiration-ms: 604800000
+  cors:
+    origins: http://localhost:4200
+
+spring:
+  flyway:
+    enabled: true
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: UTC
