@@ -1,5 +1,8 @@
 package com.matjussu.picsou.auth;
 
+import com.matjussu.picsou.account.Account;
+import com.matjussu.picsou.account.AccountRepository;
+import com.matjussu.picsou.account.AccountType;
 import com.matjussu.picsou.auth.dto.AuthResponse;
 import com.matjussu.picsou.auth.dto.LoginRequest;
 import com.matjussu.picsou.auth.dto.RefreshRequest;
@@ -17,6 +20,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -25,12 +29,14 @@ public class AuthService {
 
   private final UserRepository users;
   private final RefreshTokenRepository refreshTokens;
+  private final AccountRepository accounts;
   private final PasswordEncoder encoder;
   private final JwtTokenProvider tokenProvider;
 
   @Value("${app.jwt.refresh-expiration-ms}")
   private long refreshExpirationMs;
 
+  @Transactional
   public AuthResponse signup(SignupRequest req) {
     if (users.existsByEmail(req.email())) {
       throw new ResponseStatusException(HttpStatus.CONFLICT, "Email déjà utilisé");
@@ -42,6 +48,14 @@ public class AuthService {
             .firstName(req.firstName())
             .build();
     users.save(user);
+    // Tout utilisateur démarre avec un compte par défaut → toute transaction a un account_id
+    // non-null. user + compte créés dans la même transaction (atomicité via @Transactional).
+    accounts.save(
+        Account.builder()
+            .userId(user.getId())
+            .name("Compte courant")
+            .type(AccountType.cash)
+            .build());
     return generateTokens(user);
   }
 
@@ -51,8 +65,7 @@ public class AuthService {
             .findByEmail(req.email())
             .orElseThrow(
                 () ->
-                    new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Identifiants invalides"));
+                    new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides"));
     if (!encoder.matches(req.password(), user.getPasswordHash())) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides");
     }
@@ -66,11 +79,9 @@ public class AuthService {
             .findByTokenHash(hash)
             .orElseThrow(
                 () ->
-                    new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Refresh token inconnu"));
+                    new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token inconnu"));
     if (stored.getRevokedAt() != null || stored.getExpiresAt().isBefore(Instant.now())) {
-      throw new ResponseStatusException(
-          HttpStatus.UNAUTHORIZED, "Refresh token expiré ou révoqué");
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expiré ou révoqué");
     }
     User user =
         users
