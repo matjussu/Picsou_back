@@ -1,14 +1,20 @@
 package com.matjussu.picsou.auth;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.matjussu.picsou.account.Account;
+import com.matjussu.picsou.account.AccountRepository;
+import com.matjussu.picsou.account.AccountType;
 import com.matjussu.picsou.auth.dto.AuthResponse;
 import com.matjussu.picsou.auth.dto.LoginRequest;
 import com.matjussu.picsou.auth.dto.RefreshRequest;
 import com.matjussu.picsou.auth.dto.SignupRequest;
+import com.matjussu.picsou.user.UserRepository;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -40,6 +46,8 @@ class AuthControllerIT {
 
   @Autowired MockMvc mvc;
   @Autowired ObjectMapper json;
+  @Autowired AccountRepository accounts;
+  @Autowired UserRepository users;
 
   @Test
   void signup_login_refresh_logout_flow() throws Exception {
@@ -109,5 +117,26 @@ class AuthControllerIT {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json.writeValueAsString(login)))
         .andExpect(status().isUnauthorized());
+  }
+
+  @Test
+  void signup_creates_default_account() throws Exception {
+    var signup = new SignupRequest("acct@picsou.demo", "Strong-Password-123", "Acct");
+    mvc.perform(
+            post("/api/auth/signup")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(signup)))
+        .andExpect(status().isCreated());
+
+    var user = users.findByEmail("acct@picsou.demo").orElseThrow();
+    List<Account> userAccounts = accounts.findByUserId(user.getId());
+    assertThat(userAccounts)
+        .hasSize(1)
+        .first()
+        .satisfies(
+            a -> {
+              assertThat(a.getName()).isEqualTo("Compte courant");
+              assertThat(a.getType()).isEqualTo(AccountType.cash);
+            });
   }
 }
