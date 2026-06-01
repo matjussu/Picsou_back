@@ -73,7 +73,8 @@ public class GoalController {
   @ResponseStatus(HttpStatus.CREATED)
   @Operation(
       summary = "Ajouter une contribution à un objectif",
-      description = "Met à jour le montant épargné ; marque l'objectif atteint si la cible est franchie.")
+      description =
+          "Met à jour le montant épargné ; marque l'objectif atteint si la cible est franchie.")
   @ApiResponse(responseCode = "201", description = "Contribution ajoutée")
   public ContributionResponse addContribution(
       @AuthenticationPrincipal UUID userId,

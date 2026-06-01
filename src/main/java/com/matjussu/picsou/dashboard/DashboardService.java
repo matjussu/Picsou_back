@@ -34,10 +34,8 @@ public class DashboardService {
     YearMonth now = YearMonth.now();
     LocalDate from = now.atDay(1);
     LocalDate to = now.atEndOfMonth();
-    BigDecimal income =
-        transactions.sumByTypeAndPeriod(userId, TransactionType.income, from, to);
-    BigDecimal expense =
-        transactions.sumByTypeAndPeriod(userId, TransactionType.expense, from, to);
+    BigDecimal income = transactions.sumByTypeAndPeriod(userId, TransactionType.income, from, to);
+    BigDecimal expense = transactions.sumByTypeAndPeriod(userId, TransactionType.expense, from, to);
     int count = (int) transactions.countByUserIdAndDateBetween(userId, from, to);
     return new DashboardSummary(income, expense, income.subtract(expense), count);
   }

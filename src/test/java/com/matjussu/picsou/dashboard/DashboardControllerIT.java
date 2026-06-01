@@ -118,7 +118,8 @@ class DashboardControllerIT {
     tx(a.userId(), null, "100", LocalDate.now(), TransactionType.expense);
     tx(a.userId(), null, "200", LocalDate.now().minusMonths(2), TransactionType.expense);
 
-    MonthlyPoint[] points = getJson("/api/dashboard/charts/monthly", a.token(), MonthlyPoint[].class);
+    MonthlyPoint[] points =
+        getJson("/api/dashboard/charts/monthly", a.token(), MonthlyPoint[].class);
     assertThat(points).hasSize(12);
     assertThat(points[11].current()).isTrue();
     assertThat(points[11].total()).isEqualByComparingTo("100");

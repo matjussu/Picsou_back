@@ -39,7 +39,8 @@ public class DashboardController {
   }
 
   @GetMapping("/charts/category-breakdown")
-  @Operation(summary = "Répartition des dépenses du mois courant par catégorie (triée décroissante)")
+  @Operation(
+      summary = "Répartition des dépenses du mois courant par catégorie (triée décroissante)")
   @ApiResponse(responseCode = "200", description = "Répartition par catégorie")
   public List<CategorySlice> categoryBreakdown(@AuthenticationPrincipal UUID userId) {
     return service.categoryBreakdown(userId);

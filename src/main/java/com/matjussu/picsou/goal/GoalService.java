@@ -73,7 +73,8 @@ public class GoalService {
 
   /** G4 : insert contribution + maintien current_amount + completed_at auto, en une transaction. */
   @Transactional
-  public ContributionResponse addContribution(UUID userId, UUID goalId, AddContributionRequest req) {
+  public ContributionResponse addContribution(
+      UUID userId, UUID goalId, AddContributionRequest req) {
     Goal goal = owned(userId, goalId);
     GoalContribution c =
         contributions.save(
