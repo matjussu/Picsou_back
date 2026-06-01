@@ -76,7 +76,9 @@ public class TransactionController {
   @GetMapping("/{id}")
   @Operation(summary = "Détail d'une transaction")
   @ApiResponse(responseCode = "200", description = "Transaction trouvée")
-  @ApiResponse(responseCode = "404", description = "Transaction inconnue ou appartenant à un autre utilisateur")
+  @ApiResponse(
+      responseCode = "404",
+      description = "Transaction inconnue ou appartenant à un autre utilisateur")
   public TransactionResponse get(@AuthenticationPrincipal UUID userId, @PathVariable UUID id) {
     return service.get(userId, id);
   }

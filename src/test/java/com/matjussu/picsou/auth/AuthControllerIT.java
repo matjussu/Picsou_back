@@ -34,8 +34,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 class AuthControllerIT {
 
-  @Container
-  static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
+  @Container static PostgreSQLContainer<?> pg = new PostgreSQLContainer<>("postgres:16-alpine");
 
   @DynamicPropertySource
   static void props(DynamicPropertyRegistry r) {

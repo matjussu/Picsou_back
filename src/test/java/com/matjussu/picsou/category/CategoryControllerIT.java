@@ -99,7 +99,8 @@ class CategoryControllerIT {
     authenticate("cat-list@picsou.demo");
     JsonNode arr = listCategories();
     org.assertj.core.api.Assertions.assertThat(arr.size()).isGreaterThanOrEqualTo(15);
-    // Les catégories seedées (V2) sont globales → isDefault doit être true (anti-régression MapStruct).
+    // Les catégories seedées (V2) sont globales → isDefault doit être true (anti-régression
+    // MapStruct).
     org.assertj.core.api.Assertions.assertThat(arr.get(0).get("isDefault").asBoolean()).isTrue();
   }
 

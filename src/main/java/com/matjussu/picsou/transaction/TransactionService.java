@@ -21,7 +21,8 @@ public class TransactionService {
   private final AccountRepository accounts;
   private final TransactionMapper mapper;
 
-  public List<TransactionResponse> search(UUID userId, TransactionFilter filter, Pageable pageable) {
+  public List<TransactionResponse> search(
+      UUID userId, TransactionFilter filter, Pageable pageable) {
     return transactions
         .findAll(TransactionSpecifications.withFilters(userId, filter), pageable)
         .map(mapper::toDto)

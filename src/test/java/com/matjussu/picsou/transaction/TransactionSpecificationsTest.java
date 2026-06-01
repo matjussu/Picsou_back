@@ -84,13 +84,16 @@ class TransactionSpecificationsTest {
 
   @Test
   void filters_by_date_from() {
-    var f = new TransactionFilter(LocalDate.parse("2026-05-15"), null, null, null, null, null, null, null);
+    var f =
+        new TransactionFilter(
+            LocalDate.parse("2026-05-15"), null, null, null, null, null, null, null);
     assertThat(repo.findAll(TransactionSpecifications.withFilters(userA, f))).hasSize(1); // Courses
   }
 
   @Test
   void filters_by_type_expense() {
-    var f = new TransactionFilter(null, null, null, null, null, null, TransactionType.expense, null);
+    var f =
+        new TransactionFilter(null, null, null, null, null, null, TransactionType.expense, null);
     assertThat(repo.findAll(TransactionSpecifications.withFilters(userA, f))).hasSize(2); // G2
   }
 
@@ -103,6 +106,7 @@ class TransactionSpecificationsTest {
   @Test
   void filters_by_min_amount() {
     var f = new TransactionFilter(null, null, null, null, new BigDecimal("50"), null, null, null);
-    assertThat(repo.findAll(TransactionSpecifications.withFilters(userA, f))).hasSize(2); // 100 + 50
+    assertThat(repo.findAll(TransactionSpecifications.withFilters(userA, f)))
+        .hasSize(2); // 100 + 50
   }
 }

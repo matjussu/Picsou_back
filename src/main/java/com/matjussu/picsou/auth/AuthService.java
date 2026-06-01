@@ -51,7 +51,11 @@ public class AuthService {
     // Tout utilisateur démarre avec un compte par défaut → toute transaction a un account_id
     // non-null. user + compte créés dans la même transaction (atomicité via @Transactional).
     accounts.save(
-        Account.builder().userId(user.getId()).name("Compte courant").type(AccountType.cash).build());
+        Account.builder()
+            .userId(user.getId())
+            .name("Compte courant")
+            .type(AccountType.cash)
+            .build());
     return generateTokens(user);
   }
 
@@ -61,8 +65,7 @@ public class AuthService {
             .findByEmail(req.email())
             .orElseThrow(
                 () ->
-                    new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Identifiants invalides"));
+                    new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides"));
     if (!encoder.matches(req.password(), user.getPasswordHash())) {
       throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Identifiants invalides");
     }
@@ -76,11 +79,9 @@ public class AuthService {
             .findByTokenHash(hash)
             .orElseThrow(
                 () ->
-                    new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED, "Refresh token inconnu"));
+                    new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token inconnu"));
     if (stored.getRevokedAt() != null || stored.getExpiresAt().isBefore(Instant.now())) {
-      throw new ResponseStatusException(
-          HttpStatus.UNAUTHORIZED, "Refresh token expiré ou révoqué");
+      throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Refresh token expiré ou révoqué");
     }
     User user =
         users

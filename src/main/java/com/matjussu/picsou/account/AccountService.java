@@ -19,12 +19,12 @@ public class AccountService {
 
   public AccountResponse create(UUID userId, CreateAccountRequest req) {
     Account a =
-        accounts.save(
-            Account.builder().userId(userId).name(req.name()).type(req.type()).build());
+        accounts.save(Account.builder().userId(userId).name(req.name()).type(req.type()).build());
     return toDto(a);
   }
 
   private AccountResponse toDto(Account a) {
-    return new AccountResponse(a.getId(), a.getName(), a.getType(), a.getBalance(), a.getCurrency());
+    return new AccountResponse(
+        a.getId(), a.getName(), a.getType(), a.getBalance(), a.getCurrency());
   }
 }
