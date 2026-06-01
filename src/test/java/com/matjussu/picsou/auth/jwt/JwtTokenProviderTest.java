@@ -47,4 +47,26 @@ class JwtTokenProviderTest {
     String tampered = token.substring(0, token.length() - 5) + "XXXXX";
     assertFalse(provider.isValid(tampered));
   }
+
+  @Test
+  void rejects_refresh_token_when_validating_as_access_token() {
+    UUID userId = UUID.randomUUID();
+    String refresh = provider.generateRefreshToken(userId);
+    assertFalse(provider.isValidAccessToken(refresh));
+  }
+
+  @Test
+  void accepts_access_token_when_validating_as_access_token() {
+    UUID userId = UUID.randomUUID();
+    String access = provider.generateAccessToken(userId);
+    assertTrue(provider.isValidAccessToken(access));
+  }
+
+  @Test
+  void rejects_tampered_token_as_access_token() {
+    UUID userId = UUID.randomUUID();
+    String access = provider.generateAccessToken(userId);
+    String tampered = access.substring(0, access.length() - 5) + "XXXXX";
+    assertFalse(provider.isValidAccessToken(tampered));
+  }
 }

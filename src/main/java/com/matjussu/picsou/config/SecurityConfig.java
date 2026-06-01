@@ -1,6 +1,7 @@
 package com.matjussu.picsou.config;
 
 import com.matjussu.picsou.auth.jwt.JwtAuthFilter;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +35,11 @@ public class SecurityConfig {
     http.csrf(csrf -> csrf.disable())
         .cors(cors -> {})
         .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+        .exceptionHandling(
+            e ->
+                e.authenticationEntryPoint(
+                    (request, response, authException) ->
+                        response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)))
         .authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(

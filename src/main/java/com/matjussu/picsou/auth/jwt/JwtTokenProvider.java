@@ -59,4 +59,19 @@ public class JwtTokenProvider {
       return false;
     }
   }
+
+  public boolean isValidAccessToken(String token) {
+    try {
+      String type =
+          Jwts.parser()
+              .verifyWith(key)
+              .build()
+              .parseSignedClaims(token)
+              .getPayload()
+              .get("type", String.class);
+      return "access".equals(type);
+    } catch (Exception e) {
+      return false;
+    }
+  }
 }
