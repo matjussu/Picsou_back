@@ -57,3 +57,9 @@ app:
     refresh-expiration-ms: ${APP_JWT_REFRESH_EXPIRATION_MS:604800000}
   cors:
     origins: ${APP_CORS_ORIGINS:http://localhost:4200}
+  ai:
+    # Clé Anthropic — vide = insights/OCR renvoient 503 (la prédiction reste dispo, 100% algo).
+    # Jamais commitée : .env.local (dev) / Render Environment (prod).
+    anthropic-api-key: ${ANTHROPIC_API_KEY:}
+    model: ${APP_AI_MODEL:claude-sonnet-4-6}
+    base-url: ${APP_AI_BASE_URL:https://api.anthropic.com}
