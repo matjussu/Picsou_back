@@ -2,6 +2,7 @@ package com.matjussu.picsou.coloc;
 
 import com.matjussu.picsou.coloc.dto.AddSharedExpenseRequest;
 import com.matjussu.picsou.coloc.dto.AddSharedExpenseRequest.CustomPart;
+import com.matjussu.picsou.coloc.dto.ColocEvent;
 import com.matjussu.picsou.coloc.dto.SharedExpenseResponse;
 import com.matjussu.picsou.transaction.Transaction;
 import com.matjussu.picsou.transaction.TransactionRepository;
@@ -22,8 +23,11 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.server.ResponseStatusException;
 
 @Service
@@ -35,6 +39,7 @@ public class SharedExpenseService {
   private final SharedExpensePartRepository parts;
   private final TransactionRepository transactions;
   private final UserRepository users;
+  private final SimpMessagingTemplate messaging;
 
   /**
    * Ajoute une dépense partagée : crée la transaction du payeur + la shared_expense + N parts. En
@@ -90,6 +95,9 @@ public class SharedExpenseService {
                         .settled(false)
                         .build())));
 
+    String actor = displayName(currentUserId);
+    broadcastAfterCommit(
+        groupId, new ColocEvent("expense.added", actor, req.description(), total, Instant.now()));
     return toResponse(se, tx, saved, currentUserId, displayName(payer));
   }
 
@@ -147,6 +155,10 @@ public class SharedExpenseService {
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dépense inconnue"));
     requireMember(se.getColocGroupId(), currentUserId);
     markSettled(parts.findBySharedExpenseId(expenseId));
+    broadcastAfterCommit(
+        se.getColocGroupId(),
+        new ColocEvent(
+            "expense.settled", displayName(currentUserId), "Dépense réglée", null, Instant.now()));
   }
 
   /**
@@ -162,6 +174,10 @@ public class SharedExpenseService {
       return;
     }
     markSettled(parts.findBySharedExpenseIdIn(ses.stream().map(SharedExpense::getId).toList()));
+    broadcastAfterCommit(
+        groupId,
+        new ColocEvent(
+            "expense.settled", displayName(currentUserId), "Comptes soldés", null, Instant.now()));
   }
 
   private void markSettled(List<SharedExpensePart> partList) {
@@ -172,6 +188,22 @@ public class SharedExpenseService {
         p.setSettledAt(now);
         parts.save(p);
       }
+    }
+  }
+
+  /** Diffuse l'événement APRÈS le commit (jamais un état potentiellement rollback). */
+  private void broadcastAfterCommit(UUID groupId, ColocEvent event) {
+    String destination = "/topic/coloc/" + groupId;
+    if (TransactionSynchronizationManager.isSynchronizationActive()) {
+      TransactionSynchronizationManager.registerSynchronization(
+          new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+              messaging.convertAndSend(destination, event);
+            }
+          });
+    } else {
+      messaging.convertAndSend(destination, event);
     }
   }
 
