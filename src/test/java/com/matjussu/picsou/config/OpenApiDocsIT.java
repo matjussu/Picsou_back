@@ -50,6 +50,7 @@ class OpenApiDocsIT {
         .andExpect(jsonPath("$.tags[*].name").value(org.hamcrest.Matchers.hasItem("Coloc")))
         .andExpect(jsonPath("$.tags[*].name").value(org.hamcrest.Matchers.hasItem("Predictions")))
         .andExpect(jsonPath("$.tags[*].name").value(org.hamcrest.Matchers.hasItem("Insights")))
+        .andExpect(jsonPath("$.tags[*].name").value(org.hamcrest.Matchers.hasItem("OCR")))
         .andExpect(jsonPath("$.paths['/api/transactions'].get").exists())
         .andExpect(jsonPath("$.paths['/api/transactions'].post").exists())
         .andExpect(jsonPath("$.paths['/api/categories'].get").exists())
@@ -72,6 +73,8 @@ class OpenApiDocsIT {
         .andExpect(jsonPath("$.paths['/api/predictions/end-of-month'].get").exists())
         .andExpect(jsonPath("$.paths['/api/insights/monthly'].post").exists())
         .andExpect(jsonPath("$.paths['/api/insights/monthly'].post.responses.503").exists())
+        .andExpect(jsonPath("$.paths['/api/ocr/receipt'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/ocr/receipt'].post.responses.503").exists())
         // Le 409 (catégorie par défaut/référencée) doit être documenté sur le DELETE.
         .andExpect(jsonPath("$.paths['/api/categories/{id}'].delete.responses.409").exists())
         // Le 409 (membre déjà présent) doit être documenté sur l'ajout de membre coloc.
