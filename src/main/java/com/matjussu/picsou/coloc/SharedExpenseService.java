@@ -10,6 +10,7 @@ import com.matjussu.picsou.user.User;
 import com.matjussu.picsou.user.UserRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -132,6 +133,46 @@ public class SharedExpenseService {
                     SharedExpenseResponse::date, Comparator.nullsLast(Comparator.naturalOrder()))
                 .reversed())
         .toList();
+  }
+
+  // ── Règlement (settle) ──
+
+  /** Marque réglées les parts d'UNE dépense. 404 si dépense inconnue ou user non membre. */
+  @Transactional
+  public void settleExpense(UUID currentUserId, UUID expenseId) {
+    SharedExpense se =
+        sharedExpenses
+            .findById(expenseId)
+            .orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Dépense inconnue"));
+    requireMember(se.getColocGroupId(), currentUserId);
+    markSettled(parts.findBySharedExpenseId(expenseId));
+  }
+
+  /**
+   * Marque réglées TOUTES les parts non-settled du groupe (action principale du modal « Régler »,
+   * après que les virements ont été faits IRL). Pas de settle « par transfert » : les transferts
+   * simplifiés ne correspondent pas 1:1 à des parts.
+   */
+  @Transactional
+  public void settleAll(UUID currentUserId, UUID groupId) {
+    requireMember(groupId, currentUserId);
+    List<SharedExpense> ses = sharedExpenses.findByColocGroupId(groupId);
+    if (ses.isEmpty()) {
+      return;
+    }
+    markSettled(parts.findBySharedExpenseIdIn(ses.stream().map(SharedExpense::getId).toList()));
+  }
+
+  private void markSettled(List<SharedExpensePart> partList) {
+    Instant now = Instant.now();
+    for (SharedExpensePart p : partList) {
+      if (!p.isSettled()) {
+        p.setSettled(true);
+        p.setSettledAt(now);
+        parts.save(p);
+      }
+    }
   }
 
   // ── Calcul des parts ──
