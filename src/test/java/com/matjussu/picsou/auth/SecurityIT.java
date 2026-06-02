@@ -53,4 +53,10 @@ class SecurityIT {
     mvc.perform(get("/api/test/secure").header("Authorization", "Bearer " + access))
         .andExpect(status().isOk());
   }
+
+  @Test
+  void actuator_health_is_public() throws Exception {
+    // Render (et tout monitoring externe) doit pouvoir ping le health check sans JWT.
+    mvc.perform(get("/actuator/health")).andExpect(status().isOk());
+  }
 }

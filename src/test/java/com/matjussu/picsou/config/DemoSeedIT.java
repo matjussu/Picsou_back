@@ -2,6 +2,7 @@ package com.matjussu.picsou.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.matjussu.picsou.account.AccountRepository;
 import com.matjussu.picsou.goal.GoalRepository;
 import com.matjussu.picsou.transaction.TransactionRepository;
 import com.matjussu.picsou.user.User;
@@ -35,22 +36,38 @@ class DemoSeedIT {
   }
 
   @Autowired UserRepository users;
+  @Autowired AccountRepository accounts;
   @Autowired TransactionRepository transactions;
   @Autowired GoalRepository goals;
   @Autowired DemoSeed demoSeed;
 
   @Test
-  void seed_populates_marie_and_is_idempotent() {
-    User marie = users.findByEmail("marie@picsou.demo").orElseThrow();
-    assertThat(transactions.count()).isGreaterThan(0);
-    assertThat(goals.findByUserId(marie.getId())).hasSize(2);
+  void seed_populates_matteo_densely() {
+    User matteo = users.findByEmail("matteo@picsou.demo").orElseThrow();
 
+    // User principal dense : plusieurs comptes, gros volume de transactions, goals variés.
+    assertThat(accounts.findByUserId(matteo.getId())).hasSize(3);
+    assertThat(transactions.count()).isGreaterThan(40);
+    assertThat(goals.findByUserId(matteo.getId())).hasSize(4);
+    // Au moins un goal atteint (completedAt non nul) et au moins un en cours.
+    assertThat(goals.findByUserIdAndCompletedAtIsNotNull(matteo.getId())).isNotEmpty();
+    assertThat(goals.findByUserIdAndCompletedAtIsNull(matteo.getId())).isNotEmpty();
+
+    // Users secondaires présents (login multi-user démontrable).
+    assertThat(users.findByEmail("marie@picsou.demo")).isPresent();
+    assertThat(users.findByEmail("pierre@picsou.demo")).isPresent();
+  }
+
+  @Test
+  void seed_is_idempotent() {
     long usersBefore = users.count();
     long txBefore = transactions.count();
+    long goalsBefore = goals.count();
 
     demoSeed.run(); // re-run : doit être idempotent (garde existsByEmail)
 
     assertThat(users.count()).isEqualTo(usersBefore);
     assertThat(transactions.count()).isEqualTo(txBefore);
+    assertThat(goals.count()).isEqualTo(goalsBefore);
   }
 }
