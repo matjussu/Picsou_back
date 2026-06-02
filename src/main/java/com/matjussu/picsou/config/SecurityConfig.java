@@ -1,6 +1,7 @@
 package com.matjussu.picsou.config;
 
 import com.matjussu.picsou.auth.jwt.JwtAuthFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -42,7 +43,15 @@ public class SecurityConfig {
                         response.setStatus(HttpServletResponse.SC_UNAUTHORIZED)))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers(
+                auth
+                    // Le rendu d'erreur Spring (FORWARD interne vers /error) doit passer : sinon
+                    // Spring Security 6 re-sécurise le dispatch ERROR en anonymous et masque tout
+                    // status d'exception (404/409/422/503) par un 401. Permettre le dispatch ERROR
+                    // laisse sortir le vrai code (les endpoints restent protégés sur le dispatch
+                    // REQUEST).
+                    .dispatcherTypeMatchers(DispatcherType.ERROR)
+                    .permitAll()
+                    .requestMatchers(
                         "/api/auth/**",
                         "/api/health",
                         "/actuator/health",
