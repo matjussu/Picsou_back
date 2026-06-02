@@ -59,6 +59,11 @@ class OpenApiDocsIT {
         .andExpect(jsonPath("$.paths['/api/coloc/groups'].get").exists())
         .andExpect(jsonPath("$.paths['/api/coloc/groups'].post").exists())
         .andExpect(jsonPath("$.paths['/api/coloc/groups/{id}/members'].post").exists())
+        .andExpect(jsonPath("$.paths['/api/coloc/groups/{groupId}/expenses'].get").exists())
+        .andExpect(jsonPath("$.paths['/api/coloc/groups/{groupId}/expenses'].post").exists())
+        // Le 422 (split custom incohérent) doit être documenté sur l'ajout de dépense partagée.
+        .andExpect(
+            jsonPath("$.paths['/api/coloc/groups/{groupId}/expenses'].post.responses.422").exists())
         // Le 409 (catégorie par défaut/référencée) doit être documenté sur le DELETE.
         .andExpect(jsonPath("$.paths['/api/categories/{id}'].delete.responses.409").exists())
         // Le 409 (membre déjà présent) doit être documenté sur l'ajout de membre coloc.
