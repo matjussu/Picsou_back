@@ -60,13 +60,18 @@ public class StompAuthChannelInterceptor implements ChannelInterceptor {
   }
 
   private void authorizeSubscription(StompHeaderAccessor accessor) {
+    // Whitelist stricte : la seule destination cliente légitime est /topic/coloc/{uuid} d'un groupe
+    // dont on est membre. Tout le reste est rejeté — sinon un abonnement wildcard (/topic/coloc/*,
+    // /topic/**) matcherait, via l'AntPathMatcher du SimpleBroker, les events de TOUS les groupes
+    // (fuite cross-coloc). extractGroupId renvoie null pour toute destination non strictement
+    // /topic/coloc/<uuid valide>.
     UUID groupId = extractGroupId(accessor.getDestination());
-    if (groupId == null) {
-      return; // destination non scopée par groupe → rien à vérifier ici
-    }
     UUID userId = currentUserId(accessor);
-    if (userId == null || !members.existsByColocGroupIdAndUserId(groupId, userId)) {
-      throw new MessagingException("SUBSCRIBE refusé : non membre du groupe " + groupId);
+    if (groupId == null
+        || userId == null
+        || !members.existsByColocGroupIdAndUserId(groupId, userId)) {
+      throw new MessagingException(
+          "SUBSCRIBE refusé : destination non autorisée " + accessor.getDestination());
     }
   }
 

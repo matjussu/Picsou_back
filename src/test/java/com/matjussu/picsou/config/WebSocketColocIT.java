@@ -194,4 +194,31 @@ class WebSocketColocIT {
 
     assertThat(received.poll(2, TimeUnit.SECONDS)).isNull(); // non-membre ne reçoit rien
   }
+
+  @Test
+  void wildcard_subscription_does_not_leak_other_groups() throws Exception {
+    UUID a = user("ws-wild-a@picsou.demo");
+    UUID b = user("ws-wild-b@picsou.demo");
+    UUID sneaky = user("ws-sneaky@picsou.demo"); // authentifié mais non membre du groupe
+    UUID gid = group(a, b);
+
+    // Tente de capter TOUS les groupes via wildcards → doit être rejeté, zéro event délivré.
+    for (String wildcard : List.of("/topic/coloc/*", "/topic/**", "/topic/coloc/" + gid + "/**")) {
+      StompSession session =
+          connect(newClient(), jwt.generateAccessToken(sneaky)).get(5, TimeUnit.SECONDS);
+      BlockingQueue<ColocEvent> received = new LinkedBlockingQueue<>();
+      try {
+        session.subscribe(wildcard, collectInto(received));
+      } catch (Exception ignored) {
+        // peut throw ici ou en async (ERROR frame) — dans tous les cas, pas de delivery
+      }
+      Thread.sleep(400);
+
+      addExpense(a, gid, List.of(b));
+
+      assertThat(received.poll(2, TimeUnit.SECONDS))
+          .as("wildcard %s ne doit fuiter aucun event", wildcard)
+          .isNull();
+    }
+  }
 }
