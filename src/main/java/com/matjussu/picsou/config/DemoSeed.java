@@ -5,6 +5,14 @@ import com.matjussu.picsou.account.AccountRepository;
 import com.matjussu.picsou.account.AccountType;
 import com.matjussu.picsou.category.Category;
 import com.matjussu.picsou.category.CategoryRepository;
+import com.matjussu.picsou.coloc.ColocGroup;
+import com.matjussu.picsou.coloc.ColocGroupRepository;
+import com.matjussu.picsou.coloc.ColocMember;
+import com.matjussu.picsou.coloc.ColocMemberRepository;
+import com.matjussu.picsou.coloc.ColocRole;
+import com.matjussu.picsou.coloc.SharedExpenseService;
+import com.matjussu.picsou.coloc.SplitMethod;
+import com.matjussu.picsou.coloc.dto.AddSharedExpenseRequest;
 import com.matjussu.picsou.goal.Goal;
 import com.matjussu.picsou.goal.GoalContribution;
 import com.matjussu.picsou.goal.GoalContributionRepository;
@@ -19,6 +27,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
@@ -63,6 +72,8 @@ public class DemoSeed implements CommandLineRunner {
   private static final String MATTEO = "matteo@picsou.demo";
   private static final String MARIE = "marie@picsou.demo";
   private static final String PIERRE = "pierre@picsou.demo";
+  private static final String TITOUAN = "titouan@picsou.demo";
+  private static final String HUGO = "hugo@picsou.demo";
   private static final String DEMO_PASSWORD = "Demo-Password-123";
 
   /** Nb de mois récents entièrement densifiés (toutes catégories). */
@@ -78,6 +89,9 @@ public class DemoSeed implements CommandLineRunner {
   private final TransactionRepository transactions;
   private final GoalRepository goals;
   private final GoalContributionRepository contributions;
+  private final ColocGroupRepository colocGroups;
+  private final ColocMemberRepository colocMembers;
+  private final SharedExpenseService sharedExpenses;
 
   private final LocalDate today = LocalDate.now();
 
@@ -89,6 +103,10 @@ public class DemoSeed implements CommandLineRunner {
     // Users secondaires : login multi-user démontrable. Marie = jeu allégé, Pierre = vierge.
     seedUser(MARIE, "Marie", this::seedMarie);
     seedUser(PIERRE, "Pierre", id -> {});
+    // Colocataires : users connectables, sans jeu perso (leur data est la coloc « Le Loft »).
+    seedUser(TITOUAN, "Titouan", id -> {});
+    seedUser(HUGO, "Hugo", id -> {});
+    seedColoc();
   }
 
   /** (Re)crée le user et seede sa data uniquement si l'email est absent. */
@@ -414,6 +432,78 @@ public class DemoSeed implements CommandLineRunner {
         GoalTemplate.travel,
         today.plusMonths(2),
         new double[] {250, 150}); // ~57 %
+  }
+
+  // ── Coloc « Le Loft » (Matteo / Titouan / Hugo) ──
+
+  /**
+   * Seede le groupe coloc + dépenses calibrées pour un settle-up démo à <b>exactement 2
+   * virements</b> (Hugo → Matteo, Hugo → Titouan). Idempotence dédiée au GROUPE : on ne reseed pas
+   * si Matteo a déjà une coloc (le guard par-user ne couvre pas le groupe).
+   */
+  private void seedColoc() {
+    UUID matteo = users.findByEmail(MATTEO).orElseThrow().getId();
+    if (!colocMembers.findByUserId(matteo).isEmpty()) {
+      return; // déjà seedé
+    }
+    UUID titouan = users.findByEmail(TITOUAN).orElseThrow().getId();
+    UUID hugo = users.findByEmail(HUGO).orElseThrow().getId();
+
+    ColocGroup loft =
+        colocGroups.save(ColocGroup.builder().name("Le Loft").createdByUserId(matteo).build());
+    colocMembers.save(colocMember(loft.getId(), matteo, ColocRole.admin));
+    colocMembers.save(colocMember(loft.getId(), titouan, ColocRole.member));
+    colocMembers.save(colocMember(loft.getId(), hugo, ColocRole.member));
+
+    // Comptes coloc (type coloc) qui portent les transactions des dépenses partagées.
+    UUID accMatteo = account(matteo, "Compte coloc", AccountType.coloc, "150.00");
+    UUID accTitouan = account(titouan, "Compte coloc", AccountType.coloc, "320.00");
+    UUID accHugo = account(hugo, "Compte coloc", AccountType.coloc, "210.00");
+
+    // exp1 payée Matteo + exp2 payée Titouan, split égal sur les 3 → net M+30 / T+30 / H-60
+    // → simplify = 2 virements (Hugo→Matteo 30, Hugo→Titouan 30).
+    sharedExpenses.addExpense(
+        matteo,
+        loft.getId(),
+        equalExpense(
+            matteo, accMatteo, "Courses communes", at(0, 5), "90.00", List.of(titouan, hugo)));
+    sharedExpenses.addExpense(
+        titouan,
+        loft.getId(),
+        equalExpense(
+            titouan, accTitouan, "Facture électricité", at(0, 8), "90.00", List.of(matteo, hugo)));
+
+    // Une dépense déjà réglée (badge « Réglé », exclue du bilan).
+    var pizza =
+        sharedExpenses.addExpense(
+            hugo,
+            loft.getId(),
+            equalExpense(
+                hugo, accHugo, "Soirée pizza", at(1, 20), "45.00", List.of(matteo, titouan)));
+    sharedExpenses.settleExpense(matteo, pizza.id());
+  }
+
+  private ColocMember colocMember(UUID groupId, UUID userId, ColocRole role) {
+    return ColocMember.builder().colocGroupId(groupId).userId(userId).role(role).build();
+  }
+
+  private AddSharedExpenseRequest equalExpense(
+      UUID payer,
+      UUID accountId,
+      String description,
+      LocalDate date,
+      String total,
+      List<UUID> participants) {
+    return new AddSharedExpenseRequest(
+        payer,
+        accountId,
+        null,
+        description,
+        date,
+        new BigDecimal(total),
+        SplitMethod.equal,
+        participants,
+        null);
   }
 
   // ── Helpers ──
