@@ -47,7 +47,9 @@ public class SecurityConfig {
                         "/api/health",
                         "/actuator/health",
                         "/swagger-ui/**",
-                        "/v3/api-docs/**")
+                        "/v3/api-docs/**",
+                        // Handshake WS ouvert : l'auth JWT se fait au CONNECT STOMP (interceptor).
+                        "/ws/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
