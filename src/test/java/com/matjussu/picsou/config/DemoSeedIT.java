@@ -64,10 +64,26 @@ class DemoSeedIT {
     long txBefore = transactions.count();
     long goalsBefore = goals.count();
 
-    demoSeed.run(); // re-run : doit être idempotent (garde existsByEmail)
+    demoSeed.run(); // re-run : doit être idempotent (garde par-user)
 
     assertThat(users.count()).isEqualTo(usersBefore);
     assertThat(transactions.count()).isEqualTo(txBefore);
     assertThat(goals.count()).isEqualTo(goalsBefore);
+  }
+
+  @Test
+  void seed_is_robust_to_partial_state() {
+    // Simule un redeploy partiel : Matteo supprimé (sa data part en cascade DB),
+    // Marie + Pierre restent. Un guard MATTEO-only re-créerait Matteo PUIS crasherait
+    // sur createUser(MARIE) (email unique). Le guard par-user doit no-op sur Marie/Pierre.
+    User matteo = users.findByEmail("matteo@picsou.demo").orElseThrow();
+    users.deleteById(matteo.getId()); // ON DELETE CASCADE → accounts/tx/goals/contribs
+    long usersWithoutMatteo = users.count();
+
+    demoSeed.run(); // ne doit pas crasher malgré Marie/Pierre déjà présents
+
+    assertThat(users.findByEmail("matteo@picsou.demo")).isPresent(); // Matteo recréé
+    assertThat(users.findByEmail("marie@picsou.demo")).isPresent(); // Marie intacte
+    assertThat(users.count()).isEqualTo(usersWithoutMatteo + 1); // aucun doublon
   }
 }

@@ -21,6 +21,7 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
@@ -34,8 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>User principal <b>Matteo</b> (matteo@picsou.demo / Demo-Password-123), entièrement anonymisé —
  * aucune donnée bancaire réelle (garde-fou #4). <b>Jamais via Flyway</b> (ne pas polluer la prod
- * Supabase). Idempotent : le guard {@code existsByEmail(MATTEO)} évite tout reseed / doublon quand
- * Render (free tier) redémarre et rejoue le {@link CommandLineRunner}.
+ * Supabase). Idempotent <b>par-user</b> : chaque user n'est (re)créé que si son email est absent —
+ * robuste à un état partiel (un redeploy ayant seedé un sous-ensemble des users ne fait pas crasher
+ * le seed sur la contrainte d'email unique) et aux réveils Render (free tier) qui rejouent le
+ * {@link CommandLineRunner}.
  *
  * <p>Stratégie de densité, alignée sur ce que lit chaque endpoint dashboard :
  *
@@ -81,17 +84,20 @@ public class DemoSeed implements CommandLineRunner {
   @Override
   @Transactional
   public void run(String... args) {
-    if (users.existsByEmail(MATTEO)) {
-      return; // idempotent — déjà seedé
-    }
-
-    User matteo = createUser(MATTEO, "Matteo");
+    // Idempotent par-user : chaque user (+ sa data) est sauté si son email existe déjà.
+    seedUser(MATTEO, "Matteo", this::seedMatteo);
     // Users secondaires : login multi-user démontrable. Marie = jeu allégé, Pierre = vierge.
-    User marie = createUser(MARIE, "Marie");
-    createUser(PIERRE, "Pierre");
+    seedUser(MARIE, "Marie", this::seedMarie);
+    seedUser(PIERRE, "Pierre", id -> {});
+  }
 
-    seedMatteo(matteo.getId());
-    seedMarie(marie.getId());
+  /** (Re)crée le user et seede sa data uniquement si l'email est absent. */
+  private void seedUser(String email, String firstName, Consumer<UUID> dataSeeder) {
+    if (users.existsByEmail(email)) {
+      return; // déjà seedé — on saute le user et sa data
+    }
+    User user = createUser(email, firstName);
+    dataSeeder.accept(user.getId());
   }
 
   // ── User principal : dense et crédible ──
