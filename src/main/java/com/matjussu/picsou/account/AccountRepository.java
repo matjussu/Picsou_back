@@ -10,4 +10,7 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
   List<Account> findByUserId(UUID userId);
 
   Optional<Account> findByIdAndUserId(UUID id, UUID userId);
+
+  /** Compte rattaché à une connexion Open Banking (external_id = id de la connexion). */
+  Optional<Account> findByUserIdAndExternalId(UUID userId, String externalId);
 }
