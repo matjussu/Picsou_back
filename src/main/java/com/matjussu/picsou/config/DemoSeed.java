@@ -18,6 +18,8 @@ import com.matjussu.picsou.goal.GoalContribution;
 import com.matjussu.picsou.goal.GoalContributionRepository;
 import com.matjussu.picsou.goal.GoalRepository;
 import com.matjussu.picsou.goal.GoalTemplate;
+import com.matjussu.picsou.openbanking.BankConnectionRepository;
+import com.matjussu.picsou.openbanking.OpenBankingService;
 import com.matjussu.picsou.transaction.Transaction;
 import com.matjussu.picsou.transaction.TransactionRepository;
 import com.matjussu.picsou.transaction.TransactionType;
@@ -92,6 +94,8 @@ public class DemoSeed implements CommandLineRunner {
   private final ColocGroupRepository colocGroups;
   private final ColocMemberRepository colocMembers;
   private final SharedExpenseService sharedExpenses;
+  private final OpenBankingService openBanking;
+  private final BankConnectionRepository bankConnections;
 
   private final LocalDate today = LocalDate.now();
 
@@ -107,6 +111,24 @@ public class DemoSeed implements CommandLineRunner {
     seedUser(TITOUAN, "Titouan", id -> {});
     seedUser(HUGO, "Hugo", id -> {});
     seedColoc();
+    seedOpenBanking();
+  }
+
+  // ── Open Banking (mock) : 2 banques connectées pour Matteo ──
+
+  /**
+   * Connecte 2 banques pour Matteo via le service Open Banking (mock) — chaque connexion crée un
+   * compte bancaire dédié + importe des transactions plausibles (source {@code openbanking}).
+   * Idempotence dédiée à Matteo : on ne reseed pas s'il a déjà une connexion (le guard par-user de
+   * {@link #seedUser} ne couvre pas cette donnée ajoutée après coup).
+   */
+  private void seedOpenBanking() {
+    UUID matteo = users.findByEmail(MATTEO).orElseThrow().getId();
+    if (!bankConnections.findByUserId(matteo).isEmpty()) {
+      return; // déjà seedé
+    }
+    openBanking.connect(matteo, "boursobank");
+    openBanking.connect(matteo, "revolut");
   }
 
   /** (Re)crée le user et seede sa data uniquement si l'email est absent. */

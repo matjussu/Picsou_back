@@ -17,6 +17,12 @@ public interface TransactionRepository
 
   boolean existsByUserIdAndCategoryId(UUID userId, UUID categoryId);
 
+  /** Idempotence import Open Banking : ne pas réimporter une transaction déjà synchronisée. */
+  boolean existsByExternalId(String externalId);
+
+  /** Nombre de transactions rattachées à un compte (= transactions importées d'une connexion). */
+  long countByAccountId(UUID accountId);
+
   long countByUserIdAndDateBetween(UUID userId, LocalDate from, LocalDate to);
 
   // ── Agrégations dashboard (user-scopées) ──

@@ -10,6 +10,7 @@ import com.matjussu.picsou.coloc.SharedExpenseService;
 import com.matjussu.picsou.coloc.dto.BalanceResponse;
 import com.matjussu.picsou.coloc.dto.SharedExpenseResponse;
 import com.matjussu.picsou.goal.GoalRepository;
+import com.matjussu.picsou.openbanking.BankConnectionRepository;
 import com.matjussu.picsou.transaction.TransactionRepository;
 import com.matjussu.picsou.user.User;
 import com.matjussu.picsou.user.UserRepository;
@@ -51,15 +52,16 @@ class DemoSeedIT {
   @Autowired ColocMemberRepository colocMembers;
   @Autowired ColocBalanceService balanceService;
   @Autowired SharedExpenseService sharedExpenseService;
+  @Autowired BankConnectionRepository bankConnections;
   @Autowired DemoSeed demoSeed;
 
   @Test
   void seed_populates_matteo_densely() {
     User matteo = users.findByEmail("matteo@picsou.demo").orElseThrow();
 
-    // User principal dense : 3 comptes perso + 1 compte coloc (« Le Loft »), gros volume de
-    // transactions, goals variés.
-    assertThat(accounts.findByUserId(matteo.getId())).hasSize(4);
+    // User principal dense : 3 comptes perso + 1 compte coloc (« Le Loft ») + 2 comptes Open
+    // Banking (banques connectées), gros volume de transactions, goals variés.
+    assertThat(accounts.findByUserId(matteo.getId())).hasSize(6);
     assertThat(transactions.count()).isGreaterThan(40);
     assertThat(goals.findByUserId(matteo.getId())).hasSize(4);
     // Au moins un goal atteint (completedAt non nul) et au moins un en cours.
@@ -126,5 +128,26 @@ class DemoSeedIT {
     demoSeed.run();
     assertThat(colocGroups.count()).isEqualTo(groupsBefore);
     assertThat(colocMembers.findByUserId(matteo)).hasSize(1);
+  }
+
+  @Test
+  void seed_openbanking_two_connections_with_imported_transactions() {
+    UUID matteo = users.findByEmail("matteo@picsou.demo").orElseThrow().getId();
+
+    // 2 banques connectées (BoursoBank + Revolut), toutes deux actives.
+    var connections = bankConnections.findByUserId(matteo);
+    assertThat(connections).hasSize(2);
+    assertThat(connections).extracting(c -> c.getInstitutionId()).contains("boursobank", "revolut");
+
+    // Chaque connexion a importé des transactions (source openbanking) dans son compte dédié.
+    for (var conn : connections) {
+      var account =
+          accounts.findByUserIdAndExternalId(matteo, conn.getId().toString()).orElseThrow();
+      assertThat(transactions.countByAccountId(account.getId())).isGreaterThan(0);
+    }
+
+    // Idempotence dédiée : re-run → toujours 2 connexions (pas de doublon).
+    demoSeed.run();
+    assertThat(bankConnections.findByUserId(matteo)).hasSize(2);
   }
 }
