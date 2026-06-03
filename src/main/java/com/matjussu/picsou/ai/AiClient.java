@@ -13,4 +13,12 @@ public interface AiClient {
    * @throws AiUnavailableException si l'IA n'est pas configurée (clé absente) → 503.
    */
   InsightResult writeMonthlyInsight(InsightFacts facts);
+
+  /**
+   * Répond en français à une question libre de l'utilisateur sur ses finances, en s'appuyant
+   * UNIQUEMENT sur le contexte chiffré fourni (n'invente aucun montant).
+   *
+   * @throws AiUnavailableException si l'IA n'est pas configurée (clé absente) → 503.
+   */
+  InsightResult answerQuestion(AskContext context, String question);
 }

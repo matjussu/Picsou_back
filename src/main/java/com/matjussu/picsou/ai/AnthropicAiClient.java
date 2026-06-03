@@ -30,6 +30,13 @@ public class AnthropicAiClient implements AiClient {
           + " clair et bienveillant, du mois budgétaire de l'utilisateur. Tu t'appuies UNIQUEMENT"
           + " sur les chiffres fournis : n'invente AUCUN montant, pourcentage ni statistique."
           + " N'ajoute pas de conseil d'investissement réglementé.";
+  private static final String QA_SYSTEM_PROMPT =
+      "Tu es un assistant financier personnel. Tu réponds en français, de façon claire et concise"
+          + " (2 à 5 phrases), à la question de l'utilisateur sur SES finances. Tu t'appuies"
+          + " UNIQUEMENT sur les chiffres fournis dans le contexte : n'invente AUCUN montant,"
+          + " pourcentage ni statistique. Si la question porte sur une information absente du"
+          + " contexte, dis-le honnêtement au lieu d'inventer. N'ajoute pas de conseil"
+          + " d'investissement réglementé.";
 
   private final String apiKey;
   private final String model;
@@ -49,6 +56,18 @@ public class AnthropicAiClient implements AiClient {
 
   @Override
   public InsightResult writeMonthlyInsight(InsightFacts facts) {
+    return call(SYSTEM_PROMPT, userPrompt(facts));
+  }
+
+  @Override
+  public InsightResult answerQuestion(AskContext context, String question) {
+    return call(QA_SYSTEM_PROMPT, qaUserPrompt(context, question));
+  }
+
+  /**
+   * Appel Messages API factorisé (anti-confab : seul le prompt système + les faits sont envoyés).
+   */
+  private InsightResult call(String systemPrompt, String userContent) {
     if (!StringUtils.hasText(apiKey)) {
       throw new AiUnavailableException("IA non configurée (clé Anthropic absente)");
     }
@@ -64,11 +83,11 @@ public class AnthropicAiClient implements AiClient {
                     "type",
                     "text",
                     "text",
-                    SYSTEM_PROMPT,
+                    systemPrompt,
                     "cache_control",
                     Map.of("type", "ephemeral"))),
             "messages",
-            List.of(Map.of("role", "user", "content", userPrompt(facts))));
+            List.of(Map.of("role", "user", "content", userContent)));
     try {
       AnthropicResponse res =
           rest.post()
@@ -115,6 +134,52 @@ public class AnthropicAiClient implements AiClient {
     sb.append(
         "\nRédige le résumé en français en t'appuyant UNIQUEMENT sur ces chiffres, sans en inventer"
             + " d'autres.");
+    return sb.toString();
+  }
+
+  private String qaUserPrompt(AskContext ctx, String question) {
+    StringBuilder sb = new StringBuilder();
+    sb.append("Contexte financier de l'utilisateur (chiffres fiables, calculés) :\n");
+    InsightFacts m = ctx.month();
+    sb.append("Mois courant (")
+        .append(m.periodStart())
+        .append(" → ")
+        .append(m.periodEnd())
+        .append(") :\n");
+    sb.append("- Revenus : ").append(money(m.income())).append("\n");
+    sb.append("- Dépenses : ").append(money(m.expense())).append("\n");
+    sb.append("- Solde net : ").append(money(m.net())).append("\n");
+    sb.append("- Nombre de transactions : ").append(m.transactionCount()).append("\n");
+    if (m.topCategories() != null && !m.topCategories().isEmpty()) {
+      sb.append("- Principales dépenses par catégorie :\n");
+      for (CategoryShare c : m.topCategories()) {
+        sb.append("  • ").append(c.name()).append(" : ").append(money(c.amount())).append("\n");
+      }
+    }
+    sb.append("Solde total des comptes : ").append(money(ctx.totalBalance())).append("\n");
+    if (ctx.goals() != null && !ctx.goals().isEmpty()) {
+      sb.append("Objectifs d'épargne (épargné / cible) :\n");
+      for (AskContext.GoalBrief g : ctx.goals()) {
+        sb.append("  • ")
+            .append(g.name())
+            .append(" : ")
+            .append(money(g.current()))
+            .append(" / ")
+            .append(money(g.target()))
+            .append("\n");
+      }
+    }
+    if (ctx.recentMonths() != null && !ctx.recentMonths().isEmpty()) {
+      sb.append("Dépenses totales des derniers mois :\n");
+      for (AskContext.MonthlyExpense e : ctx.recentMonths()) {
+        sb.append("  • ").append(e.period()).append(" : ").append(money(e.total())).append("\n");
+      }
+    }
+    sb.append("\nQuestion de l'utilisateur : ").append(question).append("\n");
+    sb.append(
+        "Réponds en français en t'appuyant UNIQUEMENT sur ces chiffres. Si l'information"
+            + " nécessaire n'est pas présente dans ce contexte, dis-le honnêtement plutôt que"
+            + " d'inventer.");
     return sb.toString();
   }
 

@@ -88,4 +88,59 @@ class InsightControllerIT {
     mvc.perform(post("/api/insights/monthly").header("Authorization", "Bearer " + token))
         .andExpect(status().isServiceUnavailable());
   }
+
+  // ── Q&A IA libre (POST /api/insights/ask) ──
+
+  @Test
+  void ask_returns_answer_from_llm() throws Exception {
+    when(aiClient.answerQuestion(any(), any()))
+        .thenReturn(new InsightResult("Oui, ton solde le permet.", 88, "claude-sonnet-4-6"));
+    String token = signup("ai-ask@picsou.demo");
+
+    mvc.perform(
+            post("/api/insights/ask")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"Je peux me permettre un resto ce soir ?\"}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.answer").value("Oui, ton solde le permet."))
+        .andExpect(jsonPath("$.model").value("claude-sonnet-4-6"))
+        .andExpect(jsonPath("$.tokensUsed").value(88));
+    verify(aiClient, times(1)).answerQuestion(any(), any());
+  }
+
+  @Test
+  void ask_returns_503_when_ai_unavailable() throws Exception {
+    when(aiClient.answerQuestion(any(), any()))
+        .thenThrow(new AiUnavailableException("IA non configurée"));
+    String token = signup("ai-ask-503@picsou.demo");
+
+    mvc.perform(
+            post("/api/insights/ask")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"Combien j'ai dépensé ?\"}"))
+        .andExpect(status().isServiceUnavailable());
+  }
+
+  @Test
+  void ask_with_blank_question_returns_400() throws Exception {
+    String token = signup("ai-ask-blank@picsou.demo");
+
+    mvc.perform(
+            post("/api/insights/ask")
+                .header("Authorization", "Bearer " + token)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"   \"}"))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  void ask_without_token_returns_401() throws Exception {
+    mvc.perform(
+            post("/api/insights/ask")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"Et mon épargne ?\"}"))
+        .andExpect(status().isUnauthorized());
+  }
 }
