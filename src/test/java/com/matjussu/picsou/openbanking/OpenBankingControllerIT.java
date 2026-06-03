@@ -146,6 +146,50 @@ class OpenBankingControllerIT {
   }
 
   @Test
+  void cross_user_cannot_sync_or_disconnect_others_connection() throws Exception {
+    String tokenA = signupAndGetToken("ob-a@picsou.demo");
+    String tokenB = signupAndGetToken("ob-b@picsou.demo");
+    String connId = connect(tokenA, "lcl").get("id").asText();
+
+    // B ne peut ni synchroniser ni déconnecter la connexion de A → 404 (frontière user-scoping).
+    mvc.perform(
+            post("/api/openbanking/connections/" + connId + "/sync")
+                .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound());
+    mvc.perform(
+            delete("/api/openbanking/connections/" + connId)
+                .header("Authorization", "Bearer " + tokenB))
+        .andExpect(status().isNotFound());
+
+    // A garde sa connexion intacte et active (B n'a rien pu révoquer).
+    mvc.perform(get("/api/openbanking/connections").header("Authorization", "Bearer " + tokenA))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.length()").value(1))
+        .andExpect(jsonPath("$[0].status").value("active"));
+  }
+
+  @Test
+  void second_sync_is_idempotent_no_new_transactions() throws Exception {
+    String token = signupAndGetToken("ob-idem@picsou.demo");
+    JsonNode conn = connect(token, "lcl");
+    String connId = conn.get("id").asText();
+    long importedAtConnect = conn.get("transactionsImported").asLong();
+    org.junit.jupiter.api.Assertions.assertTrue(importedAtConnect > 0);
+
+    // 2e synchro → aucune nouvelle transaction (idempotent par external_id).
+    mvc.perform(
+            post("/api/openbanking/connections/" + connId + "/sync")
+                .header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.transactionsImported").value(0));
+
+    // Le compteur de transactions de la connexion est inchangé.
+    mvc.perform(get("/api/openbanking/connections").header("Authorization", "Bearer " + token))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].transactionsImported").value((int) importedAtConnect));
+  }
+
+  @Test
   void connect_same_bank_twice_returns_409() throws Exception {
     String token = signupAndGetToken("ob-dup@picsou.demo");
     connect(token, "n26");
